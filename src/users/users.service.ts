@@ -4,7 +4,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import mongoose, { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
-import { genSaltSync, hashSync } from 'bcryptjs';
+import { compareSync, genSaltSync, hashSync } from 'bcryptjs';
 
 @Injectable()
 export class UsersService {
@@ -15,6 +15,10 @@ export class UsersService {
     const hash = hashSync(password, salt);
 
     return hash;
+  };
+
+  isValidPassword = (password: string, hash: string) => {
+    return compareSync(password, hash);
   };
 
   // create(createUserDto: CreateUserDto) {
@@ -36,6 +40,10 @@ export class UsersService {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'Not found';
 
     return this.userModel.findOne({ _id: id });
+  }
+
+  findOneByUsername(username: string) {
+    return this.userModel.findOne({ email: username });
   }
 
   async update(updateUserDto: UpdateUserDto) {
