@@ -22,15 +22,15 @@ export class AppController {
   ) {}
 
   // @UseGuards(LocalAuthGuard)
-  @Public()
-  @Post('/login')
-  handleLogin(@Request() req) {
-    return this.authService.login(req.body);
-  }
+  // @Public()
+  // @Post('/login')
+  // handleLogin(@Request() req) {
+  //   return this.authService.login(req.body);
+  // }
 
-  // @UseGuards(JwtAuthGuard)
-  @Get('/profile')
-  getProfile(@Request() req) {
-    return req.user;
-  }
+  // // @UseGuards(JwtAuthGuard)
+  // @Get('/profile')
+  // getProfile(@Request() req) {
+  //   return req.user;
+  // }
 }
