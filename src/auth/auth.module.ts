@@ -21,7 +21,7 @@ import { User, UserSchema } from 'src/users/schemas/user.schema';
         return {
           secret: configService.get<string>('JWT_ACCESS_TOKEN'),
           signOptions: {
-            expiresIn: ms(configService.get<string>('JWT_ACCES_EXPIRE')),
+            expiresIn: ms(configService.get<string>('JWT_ACCES_EXPIRE')) / 1000,
           },
         };
       },

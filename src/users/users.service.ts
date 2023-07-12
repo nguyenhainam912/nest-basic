@@ -1,16 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import mongoose, { Model } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User as UserM, UserDocument } from './schemas/user.schema';
 import { compareSync, genSaltSync, hashSync } from 'bcryptjs';
 import { SoftDeleteModel } from 'soft-delete-plugin-mongoose';
+import { IUser } from './users.interface';
+import aqp from 'api-query-params';
+import { User } from 'src/decorator/customize';
+import { async } from 'rxjs';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private userModel: SoftDeleteModel<UserDocument>,
+    @InjectModel(UserM.name) private userModel: SoftDeleteModel<UserDocument>,
   ) {}
 
   getHashPassword = (password: string) => {
@@ -24,41 +28,87 @@ export class UsersService {
     return compareSync(password, hash);
   };
 
-  // create(createUserDto: CreateUserDto) {
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: CreateUserDto, @User() user: IUser) {
     const hashPassword = this.getHashPassword(createUserDto.password);
-    let user = await this.userModel.create({
+    const isExist = await this.userModel.findOne({
+      email: createUserDto.email,
+    });
+    if (isExist) {
+      throw new BadRequestException('Email is exist');
+    }
+
+    let dataUser = await this.userModel.create({
       email: createUserDto.email,
       password: hashPassword,
       name: createUserDto.name,
+      age: createUserDto.age,
+      gender: createUserDto.gender,
+      adddress: createUserDto.address,
+      company: {
+        _id: createUserDto.company._id,
+        name: createUserDto.company.name,
+      },
+      role: createUserDto.role,
+      createdBy: { _id: user._id, email: user.email },
     });
-    return user;
+    return dataUser;
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findAll(currentPage: number, limit: number, qs: string) {
+    const { filter, sort, population } = aqp(qs);
+    delete filter.page;
+    delete filter.limit;
+
+    let offset = (+currentPage - 1) * +limit;
+    let defaultLimit = +limit ? +limit : 10;
+    const totalItems = (await this.userModel.find(filter)).length;
+    const totalPages = Math.ceil(totalItems / defaultLimit);
+
+    const result = await this.userModel
+      .find(filter)
+      .skip(offset)
+      .limit(defaultLimit)
+      .sort(sort as any)
+      .populate(population)
+      .select('-password')
+      .exec();
+    return {
+      meta: {
+        current: currentPage, //trang hiện tại
+        pageSize: limit, //số lượng bản ghi đã lấy
+        pages: totalPages, //tổng số trang với điều kiện query
+        total: totalItems, // tổng số phần tử (số bản ghi)
+      },
+      result, //kết quả query
+    };
   }
 
   findOne(id: string) {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'Not found';
 
-    return this.userModel.findOne({ _id: id });
+    return this.userModel.findOne({ _id: id }).select('-password');
   }
 
   findOneByUsername(username: string) {
     return this.userModel.findOne({ email: username });
   }
 
-  async update(updateUserDto: UpdateUserDto) {
+  async update(updateUserDto: UpdateUserDto, @User() user: IUser) {
+    console.log(updateUserDto, user);
     return await this.userModel.updateOne(
       { _id: updateUserDto._id },
-      { ...updateUserDto },
+
+      { updatedBy: { id: user._id, email: user.email }, ...updateUserDto },
     );
   }
 
-  remove(id: string) {
+  async remove(id: string, @User() user: IUser) {
     if (!mongoose.Types.ObjectId.isValid(id)) return 'Not found';
+    await this.userModel.updateOne(
+      { _id: id },
+      { deletedBy: { id: user._id, email: user.email } },
+    );
 
-    return this.userModel.softDelete({ _id: id });
+    return await this.userModel.softDelete({ _id: id });
   }
 }
