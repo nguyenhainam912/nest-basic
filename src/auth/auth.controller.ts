@@ -13,17 +13,21 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { RegisterUserDto } from 'src/users/dto/create-user.dto';
 import { Request, Response } from 'express';
 import { IUser } from 'src/users/users.interface';
+import { RolesService } from 'src/roles/roles.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private rolesService: RolesService,
+  ) {}
 
   @UseGuards(LocalAuthGuard)
   @Public()
   @Post('/login')
   @ResponseMessage('Login')
   handleLogin(@Req() req, @Res({ passthrough: true }) response: Response) {
-    return this.authService.login(req.body, response);
+    return this.authService.login(req.user, response);
   }
 
   // @UseGuards(JwtAuthGuard)
@@ -36,7 +40,9 @@ export class AuthController {
 
   @Get('/account')
   @ResponseMessage('Get user')
-  getAccount(@User() user: IUser) {
+  async getAccount(@User() user: IUser) {
+    const temp: any = await this.rolesService.findOne(user.role._id);
+    user.permissions = temp.permissions;
     return { user };
   }
 
@@ -50,5 +56,15 @@ export class AuthController {
     const refreshToken = request.cookies['refresh_token'];
 
     return this.authService.processNewToken(refreshToken, response);
+  }
+
+  @Public()
+  @Post('/logout')
+  @ResponseMessage('Logout User')
+  handleLogout(
+    @User() user: IUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.logout(user, response);
   }
 }

@@ -6,6 +6,7 @@ import { SoftDeleteModel } from 'soft-delete-plugin-mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { IUser } from 'src/users/users.interface';
 import aqp from 'api-query-params';
+import mongoose from 'mongoose';
 @Injectable()
 export class CompaniesService {
   constructor(
@@ -26,8 +27,8 @@ export class CompaniesService {
 
   async findAll(currentPage: number, limit: number, qs: string) {
     const { filter, sort, population } = aqp(qs);
-    delete filter.page;
-    delete filter.limit;
+    delete filter.current;
+    delete filter.pageSize;
 
     let offset = (+currentPage - 1) * +limit;
     let defaultLimit = +limit ? +limit : 10;
@@ -52,9 +53,11 @@ export class CompaniesService {
     };
   }
 
-  // findOne(id: number) {
-  //   return `This action returns a #${id} company`;
-  // }
+  findOne(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) return 'Not found';
+
+    return this.companyModel.findOne({ _id: id });
+  }
 
   async update(id: string, updateCompanyDto: UpdateCompanyDto, user: IUser) {
     return await this.companyModel.updateOne(
